@@ -1,1 +1,6 @@
-stable-baselines3
+torch
+torchvision 
+torchaudio
+numpy
+matplotlib
+tkinter
