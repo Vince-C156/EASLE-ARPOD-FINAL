@@ -49,12 +49,91 @@ class cw_discrete:
 
 class chaser_discrete(cw_discrete):
 
-    def __init__(self):
+    def __init__(self, use_vbar, use_rbar):
         super().__init__()
         self.state_trace = []
         self.mass = 500 #500kg
         self.current_step = 0
-        self.state = self.rand_state()
+        #self.state = self.rand_state()
+        assert type(use_vbar) == bool, 'Input use_vbar must be boolean'
+        assert type(use_rbar) == bool, 'Input use_rbar must be boolean'
+        self.use_rbar = use_rbar
+        self.use_vbar = use_vbar
+
+        self.state = self.init_state()
+        print(f'x0 is {self.state}')
+        self.docking_point = np.array([0, 60, 0])
+
+    def is_vbar(self, input):
+        assert type(input) == bool, 'Input in is_vbar must be boolean'
+
+        #if using vbar disable rbar
+        if input == True:
+            self.use_rbar = False
+        self.use_vbar = input
+
+    def is_rbar(self, input):
+        assert type(input) == bool, 'Input in is_rbar must be boolean'
+
+        #if using rbar disable vbar
+        if input == True:
+            self.use_vbar = False
+
+        self.use_rbar = input
+
+    def init_v_bar(self):
+        """
+        The starting position for the V-bar approach was 
+        [0, 1000, 0] m ± [100, 100, 5] m
+
+        reference : https://www.researchgate.net/profile/Richard-Linares/publication/331135519_Spacecraft_Rendezvous_Guidance_in_Cluttered_Environments_via_Reinforcement_Learning/links/5c672585a6fdcc404eb44d45/Spacecraft-Rendezvous-Guidance-in-Cluttered-Environments-via-Reinforcement-Learning.pdf
+        """
+
+        v_bar_start = np.array([0,1000,0], np.float64)
+        v_bar_range = np.array([100, 100, 5], np.float64)
+
+        """
+        two uniform distributions from [0,1) subtracted from each other
+        to generate random floats between [-1,1]
+        """
+        percentage_offsets = np.random.random_sample(3) - np.random.random_sample(3)
+
+        #offset from v_bar_start in units
+        offsets = np.multiply(v_bar_range, percentage_offsets)
+
+        #add offsets to v_bar_start
+        pos = np.add(v_bar_start, offsets)
+        vel = np.random.randint(low=-10, high=10, size=3)
+        x0 = np.concatenate((pos, vel), axis=None, dtype=np.float64)
+        return x0
+
+    def init_r_bar(self):
+        """
+        The starting position for the V-bar approach was 
+        [1000, 0, 0] m ± [100, 100, 5] m
+
+        reference : https://www.researchgate.net/profile/Richard-Linares/publication/331135519_Spacecraft_Rendezvous_Guidance_in_Cluttered_Environments_via_Reinforcement_Learning/links/5c672585a6fdcc404>
+        """
+
+        r_bar_start = np.array([1000,0,0], np.float64)
+        r_bar_range = np.array([100, 100, 5], np.float64)
+
+        """
+        two uniform distributions from [0,1) subtracted from each other
+        to generate random floats between [-1,1]
+        """
+        percentage_offsets = np.random.random_sample(3) - np.random.random_sample(3)
+
+        #offset from v_bar_start in units
+        offsets = np.multiply(r_bar_range, percentage_offsets)
+
+        #add offsets to v_bar_start
+        pos = np.add(r_bar_start, offsets)
+        vel = np.random.randint(low=-10, high=10, size=3)
+        x0 = np.concatenate((pos, vel), axis=None, dtype=np.float64)
+
+        return x0
+
 
     def rand_state(self):
         #revise
@@ -66,6 +145,28 @@ class chaser_discrete(cw_discrete):
         print(state)
 
         return state
+
+    def init_state(self):
+
+        """
+        generates an x0 depending on generation settings (self.use_vbar, self.use_rbar)
+
+        returns : np.ndarray size 3 dtype = np.float64
+        """
+
+        """
+        demorgans used for clarification
+        (notvbar and notrbar)
+        not(vbar or rbar)
+        """
+        if not (self.use_vbar or self.use_rbar):
+            print('random initalization')
+            return self.rand_state()
+        if self.use_vbar:
+            print('using vbar')
+            return self.init_v_bar()
+        print('using rbar')
+        return self.init_r_bar()
 
     def get_next(self, action):
         next_x = super().step(self.state, action, self.mass)
@@ -84,7 +185,7 @@ class chaser_discrete(cw_discrete):
         self.state_trace = []
         self.mass = 500 #500kg
         self.current_step = 0
-        self.state = self.rand_state()
+        self.state = self.init_state()
         print("reset to default")
 
 
