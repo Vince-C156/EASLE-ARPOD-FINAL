@@ -32,8 +32,8 @@ def write2text(chaser, data_dir, file_name, step):
     file.writelines(lines2write)
     file.close()
 
-
-chaser = chaser_discrete()
+#(use_vbar, use_rbar)
+chaser = chaser_discrete(True, False)
 action = np.array([0.0, 0.0, 0.0], dtype=np.float64)
 
 data_file_name = 'chaser16.txt'
@@ -42,6 +42,7 @@ vis_obj = render_visual()
 vis_obj.render_animation(data_file_name)
 """
 for t in range(1000):
+    print(t)
     x_next = chaser.get_next(action)
     chaser.update_state(x_next)
     write2text(chaser, 'runs', data_file_name, t)
