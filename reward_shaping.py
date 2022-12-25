@@ -123,13 +123,43 @@ class reward_formulation(reward_conditions):
 
         return accumulated penality and done status
         """
-        pass
+        if not super().inbounds():
+            penality = 20
+            done = True
+        if not super().in_time():
+            penality = 20
+            done = True
+        if super().in_phase3 and not super().in_los():
+            penality = 10
+            done = True
     def soft_penalities(self):
         """
         check if distance is not increased
         check if is not in los
         check if exceeding velocity limit
         """
-        pass
+        penality = 0
+        if not super().is_closer():
+            penality += 1
+        if not super().is_velocity_limit():
+            penality += 2
+        return penality
+
     def soft_rewards(self):
-        pass
+        """
+        check if closer
+        check if los
+        """
+        reward = 0
+        if super().is_closer():
+            reward += 2
+        if super().in_los():
+            reward += 3
+        return reward
+
+    def win_conditons(self):
+        if super().is_docked():
+            reward = 50
+            done = True
+            return reward, done
+        return 0, False
