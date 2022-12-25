@@ -48,10 +48,41 @@ class reward_conditions:
             return False
 
     def in_los(self):
-        pass
+        los_len = 1000.0
+        dock_pos = self.chaser.docking_point
+        theta = self.chaser.theta_cone
+
+        p = self.chaser.state[:3] - dock_pos
+
+        c_hat = dock_pos / np.linalg.norm(dock_pos)
+        c = c_hat * los_len
+
+        condition = np.cos(theta / 2.0)
+        value = np.dot(p,c) / ( np.linalg.norm(p) * np.linalg.norm(c) )
+
+        if condition <= value:
+            return True
+        return False
 
     def is_velocity_limit(self):
-        pass
+        state = self.chaser.state
+        print(f'testing state {self.chaser.state}')
+        vel = state[3:]
+
+        distance = self.chaser_current_distance()
+        if distance < self.chaser.phase3_d:
+            if np.linalg.norm(vel) > 0.05:
+                 return False
+        elif distance < self.chaser.slowzone_d:
+            if np.linalg.norm(vel) > 0.2:
+                return False
+        return True
+
+    def in_phase3(self):
+        dist = self.chaser_current_distance()
+        if dist <= self.chaser.phase3_d:
+            return True
+        return False
 
     def in_time(self):
         """
@@ -62,8 +93,20 @@ class reward_conditions:
         return False
 
     def is_docked(self):
-        pass
+        pos = self.chaser.state[:3]
+        vel = self.chaser.state[3:]
+        if self.in_phase3() and self.in_los():
+            pos_cm = (pos - self.chaser.docking_point) / 100.0
+            vel_cm = vel / 100.0
+            print(f'position in centimeters {pos_cm}')
+            print(f'velocity in centimeters {vel_cm}')
+            #if less than 20cm away and less than 1cm/s
+            if np.linalg.norm(pos_cm) < 20 and np.linalg.norm(vel_cm) < 1:
+                return True
+        return False
 
+    def docking_collision(self):
+        pass
 
 class reward_formulation(reward_conditions):
 
@@ -80,13 +123,13 @@ class reward_formulation(reward_conditions):
 
         return accumulated penality and done status
         """
-
+        pass
     def soft_penalities(self):
         """
         check if distance is not increased
         check if is not in los
         check if exceeding velocity limit
         """
-
+        pass
     def soft_rewards(self):
-
+        pass

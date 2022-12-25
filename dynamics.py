@@ -63,6 +63,10 @@ class chaser_discrete(cw_discrete):
         self.state = self.init_state()
         print(f'x0 is {self.state}')
         self.docking_point = np.array([0, 60, 0])
+        self.theta_cone = 60
+
+        self.slowzone_d = 300 #300 meters
+        self.phase3_d = 100 #100 meters
 
     def is_vbar(self, input):
         assert type(input) == bool, 'Input in is_vbar must be boolean'
