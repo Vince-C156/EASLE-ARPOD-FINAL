@@ -162,4 +162,4 @@ class reward_formulation(reward_conditions):
             reward = 50
             done = True
             return reward, done
-        return 0, False
+         return 0, False
