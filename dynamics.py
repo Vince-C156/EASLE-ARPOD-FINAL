@@ -1,5 +1,5 @@
 import numpy as np
-
+import pdb
 """
 cw_discrete
 chaser_discrete
@@ -24,7 +24,7 @@ class cw_discrete:
                       [( (1 / n ** 2.0) * (2.0 * (np.sin(n) - n)) ), ((-3 / 2) + (4/(n ** 2.0)) * (1 - np.cos(n))), 0],
                       [0, 0, ((1/n**2.0) * (1 - np.cos(n)))],
                       [(np.sin(n) / n ), ((2 / n) * (1 - np.cos(n))), 0],
-                      [((2 / n) * (np.cos(n))), (-3 + (4 / n) * np.sin(n)), 0],
+                      [((2 / n) * (np.cos(n) - 1)), (-3 + (4 / n) * np.sin(n)), 0],
                       [0, 0, (np.sin(n) / n)]], np.float64)
 
     def step(self, state, action, mass):
@@ -35,15 +35,15 @@ class cw_discrete:
              -mass: int or float
         """
 
-        x = np.asarray(state, dtype=np.float64)
-        u = np.asarray(action, dtype=np.float64)
-        u = u / mass
+        x = np.array(state, dtype=np.float64)
+        u = np.array(action, dtype=np.float64)
+        #u = u / mass
 
         x = np.reshape(x, (6,1))
         u = np.reshape(u, (3,1))
-
-
-        x_next = (np.dot(self.A,x)) + ( np.dot(self.B,u) )
+        #pdb.set_trace()
+        x_next = np.matmul(self.A,x) + ( np.matmul(self.B,u) / mass )
+        #x_next = (np.dot(self.A,x)) + ( np.dot(self.B,u) / mass )
         x_next = np.reshape(x_next, (6,))
         return x_next
 
@@ -52,7 +52,7 @@ class chaser_discrete(cw_discrete):
     def __init__(self, use_vbar, use_rbar):
         super().__init__()
         self.state_trace = []
-        self.mass = 500 #500kg
+        self.mass = 500.0 #500kg
         self.current_step = 0
         #self.state = self.rand_state()
         assert type(use_vbar) == bool, 'Input use_vbar must be boolean'
@@ -107,7 +107,9 @@ class chaser_discrete(cw_discrete):
 
         #add offsets to v_bar_start
         pos = np.add(v_bar_start, offsets)
-        vel = np.random.randint(low=-10, high=10, size=3)
+        #vel = np.random.randint(low=-10, high=10, size=3)
+        range = np.random.randint(low=-2, high=2)
+        vel = range * np.random.random_sample((3,))
         x0 = np.concatenate((pos, vel), axis=None, dtype=np.float64)
         return x0
 
@@ -180,14 +182,14 @@ class chaser_discrete(cw_discrete):
         self.state_trace.append(state)
         self.state = state
         self.current_step += 1
-        print(f"state {self.state}, step {self.current_step}")
+        #print(f"state {self.state}, step {self.current_step}")
 
     def get_state_trace(self):
         return self.state_trace
 
     def reset(self):
         self.state_trace = []
-        self.mass = 500 #500kg
+        self.mass = 500.0 #500kg
         self.current_step = 0
         self.state = self.init_state()
         print("reset to default")

@@ -4,6 +4,7 @@ import torch as T
 import torch.nn as nn
 import torch.optim as optim
 from torch.distributions.categorical import Categorical
+from torch.distributions import MultivariateNormal
 """
 Classes:
     -PPOMemory (self, batch_size)
@@ -95,26 +96,36 @@ class Actor(nn.Module):
         self.checkpoint_file = os.path.join(ckpt_path, model_name)
 
         self.actor_network = nn.Sequential(
-            nn.Linear(*input_dims, fc1_dims),
-            nn.ReLU(),
-            nn.Linear(fc1_dims, fc2_dims),
-            nn.ReLU(),
-            nn.Linear(fc2_dims, n_actions),
-            nn.Softmax(dim=-1)
+            self.layer_init(nn.Linear(input_dims, 130).double()),
+            nn.Tanh(),
+            self.layer_init(nn.Linear(130, 88).double()),
+            nn.Tanh(),
+            self.layer_init(nn.Linear(88, 60).double()),
+            nn.Tanh(),
+            self.layer_init(nn.Linear(60, n_actions).double(), std=0.01)
         )
 
-        self.optimizer = optim.Adam(self.parameters(), lr=alpha)
+
+
+        self.optimizer = optim.Adam(self.parameters(), lr=alpha, eps=1e-5)
         self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
         print(f"using cuda: {T.cuda.is_available()}")
         self.to(self.device)
+        self.cov_var = T.full(size=(n_actions,), fill_value=0.5, dtype=T.double, device=self.device)
+        self.cov_mat = T.diag(self.cov_var).double()
+
+    def layer_init(self, layer, std=np.sqrt(2), bias_const=0.0):
+        T.nn.init.orthogonal_(layer.weight, std).double()
+        T.nn.init.constant_(layer.bias, bias_const).double()
+        return layer
 
     def forward(self, state):
         """
         given state, get the distribution of actions by passing state into actor network
         """
 
-        distribution = self.actor_network(state)
-        distribution = Categorical(distribution)
+        mean = self.actor_network(state).double()
+        distribution = MultivariateNormal(mean, self.cov_mat)
 
         return distribution
 
@@ -148,16 +159,24 @@ class Critic(nn.Module):
         self.checkpoint_file = os.path.join(ckpt_path, model_name)
 
         self.critic_network = nn.Sequential(
-            nn.Linear(*input_dims, fc1_dims),
-            nn.ReLU(),
-            nn.Linear(fc1_dims, fc2_dims),
-            nn.ReLU(),
-            nn.Linear(fc2_dims, 1)
+            self.layer_init(nn.Linear(input_dims, 130).double()),
+            nn.Tanh(),
+            self.layer_init(nn.Linear(130, 25).double()),
+            nn.Tanh(),
+            self.layer_init(nn.Linear(25, 5).double()),
+            nn.Tanh(),
+            self.layer_init(nn.Linear(5, 1).double(), std=1.0) 
         )
 
-        self.optimizer = optim.Adam(self.parameters(), lr=alpha)
+
+        self.optimizer = optim.Adam(self.parameters(), lr=alpha, eps=1e-5)
         self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
         self.to(self.device)
+
+    def layer_init(self, layer, std=np.sqrt(2), bias_const=0.0):
+        T.nn.init.orthogonal_(layer.weight, std).double()
+        T.nn.init.constant_(layer.bias, bias_const).double()
+        return layer
 
     def forward(self, state):
         """
@@ -209,16 +228,23 @@ class Agent:
 
     def choose_action(self, observation):
         #sending tensor to device (float64)
-        state = T.tensor([observation], dtype=T.float).to(self.actor.device)
+        state = T.tensor([observation], dtype=T.float64).to(self.actor.device)
         dist = self.actor(state)
         value = self.critic(state)
-        action = dist.sample() #max prob
-
-        log_probs = T.squeeze(dist.log_prob(action)).item()
-        action = T.squeeze(action).item()
+        action = dist.sample().double()
+        action = T.clamp(action, min=-1.0, max=1.0)
+        #log_probs = dist.log_prob(action)
+        #log_probs = log_probs.cpu().detach().numpy().item()
+        #log_probs = T.squeeze(dist.log_prob(action)).item()
+        #print('log probs')
+        #print(log_probs)
+        log_probs_sum = dist.log_prob(action).sum(0).cpu().detach()
+        action = action.cpu().detach().numpy()
+        action = action[0]
+        #action = action.item()
         value = T.squeeze(value).item()
 
-        return action, log_probs, value
+        return action, log_probs_sum, value
 
     def learn(self):
         for _ in range(self.n_epochs):
@@ -238,7 +264,7 @@ class Agent:
             values = T.tensor(values).to(self.actor.device)
 
             for batch in batches:
-                states = T.tensor(state_arr[batch], dtype=T.float).to(self.actor.device)
+                states = T.tensor(state_arr[batch], dtype=T.double).to(self.actor.device)
                 old_probs = T.tensor(old_probs_arr[batch]).to(self.actor.device)
                 actions = T.tensor(action_arr[batch]).to(self.actor.device)
 

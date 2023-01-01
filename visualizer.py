@@ -9,6 +9,69 @@ import os
 from functools import partial
 from time import sleep
 
+
+from matplotlib.pyplot import cycler
+from matplotlib.colors import LinearSegmentedColormap, ListedColormap
+#import matplotlib.cm
+
+def get_cycle(cmap, N=None, use_index="auto"):
+    if isinstance(cmap, str):
+        if use_index == "auto":
+            if cmap in ['Pastel1', 'Pastel2', 'Paired', 'Accent',
+                        'Dark2', 'Set1', 'Set2', 'Set3',
+                        'tab10', 'tab20', 'tab20b', 'tab20c']:
+                use_index=True
+            else:
+                use_index=False
+        cmap = matplotlib.cm.get_cmap(cmap)
+    if not N:
+        N = cmap.N
+    if use_index=="auto":
+        if cmap.N > 100:
+            use_index=False
+        elif isinstance(cmap, LinearSegmentedColormap):
+            use_index=False
+        elif isinstance(cmap, ListedColormap):
+            use_index=True
+    if use_index:
+        ind = np.arange(int(N)) % cmap.N
+        return cycler("color",cmap(ind))
+    else:
+        colors = cmap(np.linspace(0,1,N))
+        return cycler("color",colors)
+
+def write2text(chaser, data_dir, file_name, step):
+    dir_path = os.getcwd()
+    data_path = os.path.join(dir_path, data_dir)
+    file_path = os.path.join(data_path, file_name)
+    if os.path.exists(data_path) == False:
+        os.makedirs(data_path)
+        """
+        file_id = len(os.listdir(data_path))
+        file_name = f'chaser{file_id}.txt'
+        """
+        with open(file_path, 'w') as f:
+            #f.write('0,0,0\n')
+            pass
+
+    state_arr = np.asarray(chaser.get_state_trace())
+    print(f'state arr shape {state_arr.shape}')
+    print('========================')
+    print('state arr')
+    print(state_arr)
+    print('========================')
+    pos_arr = state_arr[step-1:, 0:3]
+
+    lines2write = ['\n'+str(pos[0])+','+str(pos[1])+','+str(pos[2]) for pos in pos_arr]
+    print(f'WRITING TO {file_path}')
+    print('----------------------')
+    print('DATA WRITTING')
+    print(lines2write)
+    file = open(file_path, 'a')
+    file.writelines(lines2write)
+    file.close()
+
+
 class render_visual:
 
     def __init__(self, data_dir = 'runs'):
@@ -46,7 +109,23 @@ class render_visual:
 
         X_los, Y_los, Z_los = self.data_for_cone_along_y(self.dock_point[0], self.dock_point[2], self.theta, self.dock_point[1])
         self.ax.plot_surface(X_los, Y_los, Z_los, alpha=0.5)
+
+        X_slow, Y_slow, Z_slow = self.data_for_slowzone()
+        self.ax.plot_surface(X_slow, Y_slow, Z_slow, color='r', alpha = 0.2)
         plt.draw()
+
+    def data_for_slowzone(self):
+        u = np.linspace(0,2*np.pi, 100)
+        v = np.linspace(0, np.pi, 100)
+        r = 300
+
+        x_cen, y_cen, z_cen = self.dock_point[0], self.dock_point[1], self.dock_point[2]
+
+        x = x_cen + (r * np.outer(np.cos(u), np.sin(v)) )
+        y = y_cen + (r * np.outer(np.sin(u), np.sin(v)) )
+        z = z_cen + (r * np.outer(np.ones(np.size(u)), np.cos(v)) )
+
+        return x, y, z
 
     def data_for_cylinder_along_z(self, center_x, center_y, radius, height_z):
         #height_z
@@ -103,7 +182,11 @@ class render_visual:
                 xs = np.append(xs, [x])
                 ys = np.append(ys, [y])
                 zs = np.append(zs, [z])
-        self.ax.plot3D(xs, ys, zs, color = 'blue', linewidth=1)
+        #N = len(xs)
+        #color = plt.cm.viridis(np.linspace(0.1,0.9,N))
+        #plt.rcParams["axes.prop_cycle"] = get_cycle("viridis", N)
+        self.ax.scatter(xs[1], ys[1], zs[1], marker='o')
+        self.ax.plot(xs, ys, zs, 'g', linewidth=0.5)
         self.ax.set_xlabel('x', labelpad=20)
         self.ax.set_ylabel('y', labelpad=20)
         self.ax.set_zlabel('z', labelpad=20)
@@ -125,7 +208,3 @@ class render_visual:
         plt.ion()
         plt.show(block=False)
         #sleep(2.0)
-
-
-
-
