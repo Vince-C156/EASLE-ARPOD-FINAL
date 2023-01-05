@@ -15,3 +15,4 @@ if num > 0:
 data_file_name = f'chaser{num}.txt'
 vis_obj = render_visual()
 vis_obj.render_animation(data_file_name)
+#vis_obj.save()

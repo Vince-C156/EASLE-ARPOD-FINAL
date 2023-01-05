@@ -9,7 +9,7 @@ class reward_conditions:
         self.time_limit = 14400
         #self.obstacle_list = obstacle_list
     def inbounds(self): 
-        if self.chaser_current_distance() < 2500.0:
+        if self.chaser_current_distance() < 1500.0:
            return True
         else:
            return False
@@ -29,9 +29,7 @@ class reward_conditions:
     def chaser_last_distance(self):
         target_point = self.chaser.docking_point
         if len(self.chaser.state_trace) < 2:
-            print('no last distance')
             return np.linalg.norm(self.chaser.state[:3] - target_point)
-        #target_point = self.chaser.docking_point
         last_pos = self.chaser.state_trace[-2][:3]
 
         last_sumsq = np.sum(np.square(target_point - last_pos))
@@ -47,9 +45,6 @@ class reward_conditions:
         curr_dist = self.chaser_current_distance()
         last_dist = self.chaser_last_distance()
 
-        #print(f'curr_dist: {curr_dist}')
-        #print(f'last_dist: {last_dist}')
-        #print(f'difference {curr_dist - last_dist}')
         if (curr_dist - last_dist) <= 0:
             return True
         else:
@@ -79,20 +74,23 @@ class reward_conditions:
 
         distance = self.chaser_current_distance()
         if distance < self.chaser.phase3_d:
-            print('evaluating phase3 speed limit')
             if np.linalg.norm(vel) > 0.05:
                  return False
         elif distance < self.chaser.slowzone_d:
-            print('evaluating slow zone limit')
-            if np.linalg.norm(vel) > 0.2:
-                print('chaser is above slowzone speed limit')
+            if np.linalg.norm(vel) > 8.0:
+                print(f'failed chaser velocity {np.linalg.norm(vel)}')
                 return False
-        print('within velocity limits')
         return True
 
     def in_phase3(self):
         dist = self.chaser_current_distance()
         if dist <= self.chaser.phase3_d:
+            return True
+        return False
+
+    def in_slowzone(self):
+        dist = self.chaser_current_distance()
+        if dist <= self.chaser.slowzone_d and dist >= self.chaser.phase3_d:
             return True
         return False
 
@@ -124,6 +122,10 @@ class reward_formulation(reward_conditions):
 
     def __init__(self, chaser):
         super().__init__(chaser)
+        self.time_inlos = 0
+        self.time_slowzone = 0
+        self.time_inlos_slowzone = 0
+        self.time_inlos_phase3 = 0
 
     def terminal_conditions(self):
         """
@@ -137,15 +139,15 @@ class reward_formulation(reward_conditions):
         """
         if not super().inbounds():
             print('chaser is out of bounds')
-            penality = -10
+            penality = -3000
             done = True
             return penality, done
         if not super().in_time():
             print('mission time limit exceeded')
-            penality = -10
+            penality = -1000
             done = True
             return penality, done
-        if super().in_phase3 and not super().in_los():
+        if super().in_phase3() and not super().in_los():
             print('chaser violating phase3 constraints')
             #print(f'chaser in phase3 distance {super().in_phase3()}')
             #print(f'chaser in LOS {super().in_los()}')
@@ -161,10 +163,15 @@ class reward_formulation(reward_conditions):
         """
         penality = 0
         if not super().is_closer():
-            print('chaser is progressing away from target')
-            penality -= 1
+            curr_dist = super().chaser_current_distance()
+            last_dist = super().chaser_last_distance()
+            d_dist = (last_dist - curr_dist)
+            drift_penality = (d_dist * 2.0)
+            #print(f'drift penality {drift_penality}')
+            penality += drift_penality
         if not super().is_velocity_limit():
-            penality -= 1
+            pass
+            #penality -= 1
         return penality
 
     def soft_rewards(self):
@@ -176,13 +183,31 @@ class reward_formulation(reward_conditions):
         if super().is_closer():
             reward += 5
         if super().in_los():
-            print('in LOS')
-            reward += 10
+            #print('in LOS')
+            self.time_inlos += 1
+            reward += 15
+        if super().is_velocity_limit() and (super().in_slowzone() or super().in_phase3()):
+            #print('in velocity limit')
+            reward += 40
+            self.time_slowzone += 1
+        if super().in_slowzone() and super().in_los():
+            self.time_inlos_slowzone += 1
+            reward += 30
+        if super().in_phase3() and super().in_los():
+            self.time_inlos_phase3 += 1
+            reward += 35
         return reward
 
     def win_conditions(self):
         if super().is_docked():
-            reward = 500
+            reward = 5000
             done = True
             return reward, done
         return 0, False
+
+    def reset_counts(self):
+        self.time_inlos = 0
+        self.time_slowzone = 0
+        self.time_inlos_slowzone = 0
+        self.time_inlos_phase3 = 0
+

@@ -55,18 +55,22 @@ def write2text(chaser, data_dir, file_name, step):
             pass
 
     state_arr = np.asarray(chaser.get_state_trace())
+    """
     print(f'state arr shape {state_arr.shape}')
     print('========================')
     print('state arr')
     print(state_arr)
     print('========================')
+    """
     pos_arr = state_arr[step-1:, 0:3]
 
     lines2write = ['\n'+str(pos[0])+','+str(pos[1])+','+str(pos[2]) for pos in pos_arr]
+    """
     print(f'WRITING TO {file_path}')
     print('----------------------')
     print('DATA WRITTING')
     print(lines2write)
+    """
     file = open(file_path, 'a')
     file.writelines(lines2write)
     file.close()
@@ -108,16 +112,18 @@ class render_visual:
         self.ax.plot_surface(Xc, Yc, Zc, alpha=0.5)
 
         X_los, Y_los, Z_los = self.data_for_cone_along_y(self.dock_point[0], self.dock_point[2], self.theta, self.dock_point[1])
-        self.ax.plot_surface(X_los, Y_los, Z_los, alpha=0.5)
+
+        #self.ax.plot_surface(X_los, Y_los, Z_los, alpha=0.5)
+        self.ax.scatter(X_los, Y_los, Z_los, s=3, c='orange', alpha = 0.5)
 
         X_slow, Y_slow, Z_slow = self.data_for_slowzone()
-        self.ax.plot_surface(X_slow, Y_slow, Z_slow, color='r', alpha = 0.2)
+        self.ax.plot_surface(X_slow, Y_slow, Z_slow, color='r', alpha = 0.25)
         plt.draw()
 
     def data_for_slowzone(self):
         u = np.linspace(0,2*np.pi, 100)
         v = np.linspace(0, np.pi, 100)
-        r = 300
+        r = 500 #500m radius
 
         x_cen, y_cen, z_cen = self.dock_point[0], self.dock_point[1], self.dock_point[2]
 
@@ -129,7 +135,7 @@ class render_visual:
 
     def data_for_cylinder_along_z(self, center_x, center_y, radius, height_z):
         #height_z
-        z = np.linspace((height_z//2)*-1, height_z, 50)
+        z = np.linspace((height_z/2)*-1, height_z/2, 80)
         theta = np.linspace(0, 2*np.pi, 50)
         theta_grid, z_grid=np.meshgrid(theta, z)
         x_grid = radius*np.cos(theta_grid) + center_x
@@ -137,27 +143,9 @@ class render_visual:
         return x_grid,y_grid,z_grid
 
     def data_for_cone_along_y(self, center_x, center_z, theta, height_y):
-        #y = np.linspace(0, height_y, 50)
-        #f = lambda z, x, theta : ((np.tanh(theta)**2.0) * (center_z**2.0)) + (center_x**2.0)
-
-        def cone_formula(z, x, theta):
-            ys = np.square(np.tanh(theta)) * np.square(z) + np.square(x)
-            return ys
-
-        #u, v = np.mgrid[0:2*np.pi:100j, 0:np.pi:80j]
-        """
-        x = np.cos(u)*np.sin(v)
-        z = np.sin(u)*np.sin(v)
-
-        x = x * 500.0
-        z = z * 500.0
-        """
-
-        x = np.arange(-50.0, 50, 5)
-        z = np.arange(-50.0, 50, 5)
-        X, Z = np.meshgrid(x,z)
-        Y = cone_formula(Z, X, theta)
-        Y += height_y
+        Y = np.linspace(height_y+1, 800, 1000)
+        X = center_x + Y * np.sin(theta*Y)
+        Z = center_z + Y * np.cos(theta*Y)
         return X, Y, Z
 
 
@@ -208,3 +196,6 @@ class render_visual:
         plt.ion()
         plt.show(block=False)
         #sleep(2.0)
+
+    def save(self):
+        plt.savefig('figure.png')
