@@ -26,10 +26,10 @@ class ARPOD:
 
         if done:
             return obs, reward, done, self.info
-
+        """
         r, done = self.r_form.win_conditions()
         reward += r
-
+        """
         if done:
             return obs, reward, done, self.info
 
@@ -39,9 +39,9 @@ class ARPOD:
         r = self.r_form.soft_rewards()
         reward += r
         self.info['time in los'] = self.info['time in los'] + self.r_form.time_inlos
-        self.info['time in validslowzone'] = self.info['time in validslowzone'] + self.r_form.time_slowzone
-        self.info['time in los and slowzone'] = self.info['time in los and slowzone'] + self.r_form.time_inlos_slowzone
-        self.info['time in los and phase 3'] = self.info['time in los and phase3'] + self.r_form.time_inlos_phase3
+        #self.info['time in validslowzone'] = self.info['time in validslowzone'] + self.r_form.time_slowzone
+        #self.info['time in los and slowzone'] = self.info['time in los and slowzone'] + self.r_form.time_inlos_slowzone
+        #self.info['time in los and phase 3'] = self.info['time in los and phase3'] + self.r_form.time_inlos_phase3
         self.info['episode time'] = self.info['episode time'] + 1
         self.r_form.reset_counts()
         return obs, reward, done, self.info

@@ -57,13 +57,14 @@ class reward_conditions:
 
         p = np.array(self.chaser.state[:3], dtype=np.float64, copy=True) - dock_pos
 
-        c_hat = dock_pos / np.linalg.norm(dock_pos)
-        c = c_hat * los_len
+        #c_hat = dock_pos / np.linalg.norm(dock_pos)
+        #c = c_hat * los_len
+        c = dock_pos + np.array([0.0, 800, 0.0], dtype=np.float64)
 
         condition = np.cos(theta / 2.0)
-        value = np.dot(p,c) / ( np.linalg.norm(p) * np.linalg.norm(c) )
-
-        if condition <= value:
+        #value = np.dot(p,c) / ( np.linalg.norm(p) * np.linalg.norm(c) )
+        value = np.dot(p,c) / (np.absolute(p) @ np.absolute(c))
+        if value >= condition:
             return True
         return False
 
@@ -102,6 +103,26 @@ class reward_conditions:
             return True
         return False
 
+    def l2norm_constraint(self):
+        chaser_p = np.array(self.chaser.state[:3], dtype=np.float64, copy=True)
+        chaser_v = np.array(self.chaser.state[3:], dtype=np.float64, copy=True)
+        pos = np.square(self.chaser.docking_point - chaser_p, dtype=np.float64)
+        vel = np.square(chaser_v)
+        print(f'chaser_p {chaser_p}')
+        print(f'difference {pos}')
+        print(f'vel {vel}')
+        state = np.concatenate((pos,vel))
+        print(f'state {state}')
+        l2_norm = np.sqrt(np.sum(state))
+        print(f'l2 norm {l2_norm}')
+        if l2_norm < 0.001:
+            return 2
+        elif l2_norm < 0.005:
+            return 1
+        else:
+            return 0
+
+
     def is_docked(self):
         pos = np.array(self.chaser.state[:3], dtype=np.float64, copy=True)
         vel = np.array(self.chaser.state[3:], dtype=np.float64, copy=True)
@@ -137,24 +158,13 @@ class reward_formulation(reward_conditions):
 
         return accumulated penality and done status
         """
-        if not super().inbounds():
-            print('chaser is out of bounds')
-            penality = -3000
-            done = True
-            return penality, done
         if not super().in_time():
             print('mission time limit exceeded')
-            penality = -1000
-            done = True
-            return penality, done
-        if super().in_phase3() and not super().in_los():
-            print('chaser violating phase3 constraints')
-            #print(f'chaser in phase3 distance {super().in_phase3()}')
-            #print(f'chaser in LOS {super().in_los()}')
-            penality = -30
+            penality = -1
             done = True
             return penality, done
         return 0, False
+
     def soft_penalities(self):
         """
         check if distance is not increased
@@ -162,17 +172,12 @@ class reward_formulation(reward_conditions):
         check if exceeding velocity limit
         """
         penality = 0
-        if not super().is_closer():
-            curr_dist = super().chaser_current_distance()
-            last_dist = super().chaser_last_distance()
-            d_dist = (last_dist - curr_dist)
-            drift_penality = (d_dist * 2.0)
-            #print(f'drift penality {drift_penality}')
-            penality += drift_penality
-        if not super().is_velocity_limit():
-            pass
-            #penality -= 1
+        if not super().in_los():
+            penality += -1.0
+        else:
+            self.time_inlos += 1
         return penality
+ 
 
     def soft_rewards(self):
         """
@@ -180,27 +185,17 @@ class reward_formulation(reward_conditions):
         check if los
         """
         reward = 0
-        if super().is_closer():
-            reward += 5
-        if super().in_los():
-            #print('in LOS')
-            self.time_inlos += 1
-            reward += 15
-        if super().is_velocity_limit() and (super().in_slowzone() or super().in_phase3()):
-            #print('in velocity limit')
-            reward += 40
-            self.time_slowzone += 1
-        if super().in_slowzone() and super().in_los():
-            self.time_inlos_slowzone += 1
-            reward += 30
-        if super().in_phase3() and super().in_los():
-            self.time_inlos_phase3 += 1
-            reward += 35
+        if super().l2norm_constraint() == 2:
+            reward += 2
+
+        if super().l2norm_constraint() == 1:
+            reward += 1
+
         return reward
 
     def win_conditions(self):
         if super().is_docked():
-            reward = 5000
+            reward = 5
             done = True
             return reward, done
         return 0, False

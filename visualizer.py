@@ -114,7 +114,8 @@ class render_visual:
         X_los, Y_los, Z_los = self.data_for_cone_along_y(self.dock_point[0], self.dock_point[2], self.theta, self.dock_point[1])
 
         #self.ax.plot_surface(X_los, Y_los, Z_los, alpha=0.5)
-        self.ax.scatter(X_los, Y_los, Z_los, s=3, c='orange', alpha = 0.5)
+        x = np.linspace(-1.0, 1.0, 1000)
+        self.ax.scatter(X_los, Y_los, Z_los, s=3, c=x[::-1], cmap=cm.coolwarm, vmin=-1.0, vmax=1.0)
 
         X_slow, Y_slow, Z_slow = self.data_for_slowzone()
         self.ax.plot_surface(X_slow, Y_slow, Z_slow, color='r', alpha = 0.25)

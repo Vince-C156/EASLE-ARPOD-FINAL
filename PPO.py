@@ -305,7 +305,7 @@ class Agent:
             critic_loss = (returns-critic_value)**2.0
             critic_loss = critic_loss.mean()
 
-            total_loss = actor_loss + 0.006*entropy_loss + 0.5*critic_loss
+            total_loss = actor_loss + 0.01*entropy_loss + 0.5*critic_loss
             #print(f'advantage {advantage}')
             print(f'actor loss {actor_loss}')
             print(f'entropy loss {0.01*entropy_loss}')

@@ -74,7 +74,7 @@ for i in range(n_games):
     score_history.append(score)
     agent.writer.add_scalar("environment_metrics/reward", score, i+1)
     agent.writer.add_scalar("environment_metrics/steps_in_los", info['time in los'], i+1)
-    agent.writer.add_scalar("environment_metrics/steps_met_slowzone_conditions", info['time in validslowzone'], i+1)
+    #agent.writer.add_scalar("environment_metrics/steps_met_slowzone_conditions", info['time in validslowzone'], i+1)
     agent.writer.add_scalar("environment_metrics/episode length", info['episode time'], i+1)
     avg_score = np.mean(score_history[-100:])
 
