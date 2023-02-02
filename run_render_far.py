@@ -2,16 +2,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from dynamics import chaser_discrete
 import os
-from visualizer_close import render_visual
+from visualizer_far import render_visual
 from time import sleep
-#os.chdir('runs')
-runtype = input("Enter which run folder type (vbar1, vbar2):")
+
+
+runtype = input("Enter initalization type (vbar1, vbar2):")
 #os.chdir('runs')
 path = os.getcwd()
-data_dir = os.path.join(path, 'runs', runtype)
-
+data_dir = os.path.join(path, "runs", runtype)
 num = len(os.listdir(data_dir))
-
 if num > 0:
     num -= 1
 

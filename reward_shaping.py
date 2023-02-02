@@ -6,7 +6,7 @@ class reward_conditions:
 
     def __init__(self, chaser):
         self.chaser = chaser
-        self.time_limit = 14400
+        self.time_limit = 3200
         #self.obstacle_list = obstacle_list
     def inbounds(self): 
         if self.chaser_current_distance() < 1500.0:
@@ -59,11 +59,11 @@ class reward_conditions:
 
         #c_hat = dock_pos / np.linalg.norm(dock_pos)
         #c = c_hat * los_len
-        c = dock_pos + np.array([0.0, 800, 0.0], dtype=np.float64)
+        c = np.array([0.0, 800, 0.0], dtype=np.float64)
 
         condition = np.cos(theta / 2.0)
-        #value = np.dot(p,c) / ( np.linalg.norm(p) * np.linalg.norm(c) )
-        value = np.dot(p,c) / (np.absolute(p) @ np.absolute(c))
+        value = np.dot(p,c) / ( np.linalg.norm(p) * np.linalg.norm(c) )
+        #value = np.dot(p,c) / (np.absolute(p) @ np.absolute(c))
         if value >= condition:
             return True
         return False
@@ -99,28 +99,30 @@ class reward_conditions:
         """
 
         """
-        if self.chaser.current_step < self.time_limit:
+        if self.chaser.current_step <= self.time_limit:
             return True
         return False
 
-    def l2norm_constraint(self):
+    def l2norm_state(self):
         chaser_p = np.array(self.chaser.state[:3], dtype=np.float64, copy=True)
         chaser_v = np.array(self.chaser.state[3:], dtype=np.float64, copy=True)
-        pos = np.square(self.chaser.docking_point - chaser_p, dtype=np.float64)
-        vel = np.square(chaser_v)
-        print(f'chaser_p {chaser_p}')
-        print(f'difference {pos}')
-        print(f'vel {vel}')
-        state = np.concatenate((pos,vel))
-        print(f'state {state}')
-        l2_norm = np.sqrt(np.sum(state))
-        print(f'l2 norm {l2_norm}')
-        if l2_norm < 0.001:
-            return 2
-        elif l2_norm < 0.005:
-            return 1
-        else:
-            return 0
+        #pos = self.chaser.docking_point - chaser_p
+        pos = chaser_p - self.chaser.docking_point
+        vel = chaser_v
+        #print(f'chaser_p {chaser_p}')
+        #print(f'difference {pos}')
+        #print(f'vel {vel}')
+        #state = np.concatenate((pos,vel))
+        l2_norm_pos = np.linalg.norm(pos)
+        l2_norm_vel = np.linalg.norm(vel)
+
+        l2_norm_vel *= 10.0
+
+        l2_norm_state = l2_norm_pos + l2_norm_vel
+        #print(f'state {state}')
+        #l2_norm_state = np.linalg.norm(state)
+        #print(f'l2 norm {l2_norm}')
+        return l2_norm_state
 
 
     def is_docked(self):
@@ -172,12 +174,14 @@ class reward_formulation(reward_conditions):
         check if exceeding velocity limit
         """
         penality = 0
-        if not super().in_los():
-            penality += -1.0
-        else:
+        l2norm = super().l2norm_state()
+        if super().in_los():
             self.time_inlos += 1
+            penality -= 1.0*(l2norm)
+        else:
+            penality -= 2.0*(l2norm)
+
         return penality
- 
 
     def soft_rewards(self):
         """
@@ -185,12 +189,33 @@ class reward_formulation(reward_conditions):
         check if los
         """
         reward = 0
-        if super().l2norm_constraint() == 2:
-            reward += 2
+        l2norm = super().l2norm_state()
 
-        if super().l2norm_constraint() == 1:
-            reward += 1
 
+        if l2norm < 50:
+            reward += 1.0*(l2norm) + 1.0
+
+        if l2norm < 10 and super().in_los():
+            reward += l2norm + 50.0
+
+        if l2norm < 0.05 and super().in_los():
+            reward += l2norm + 100.0
+
+        """
+        if super().l2norm_constraint() < 0.005:
+            print('l2 norm is less than 0.005')
+            if super().in_los():
+                reward += (-1.0 * super().l2norm_constraint()) + 1.0
+            else:
+                reward += (-2.0 * super().l2norm_constraint()) + 1.0
+
+        if super().l2norm_constraint() < 0.001:
+            print('l2 norm is less than 0.001')
+            if super().in_los():
+                reward += (-1.0 * super().l2norm_constraint()) + 2.0
+            else:
+                reward += (-2.0 * super().l2norm_constraint()) + 2.0
+        """
         return reward
 
     def win_conditions(self):

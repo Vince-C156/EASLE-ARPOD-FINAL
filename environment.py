@@ -1,5 +1,5 @@
 from reward_shaping import reward_formulation
-from visualizer import write2text
+from visualizer_close import write2text
 #write2text(chaser, data_dir, file_name, step)
 import numpy as np
 import pdb
